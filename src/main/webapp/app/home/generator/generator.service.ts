@@ -54,4 +54,10 @@ export class GeneratorService {
     getGenerationData(applicationId: string): Observable<string> {
         return this.http.get('api/generate-application/' + applicationId, { responseType: 'text' });
     }
+
+    getOtherModules(): Observable<any> {
+        return this.http.get('https://api.npms.io/v2/search?q=keywords:jhipster-module+jhipster-5&from=0&size=50', {
+            responseType: 'json'
+        });
+    }
 }

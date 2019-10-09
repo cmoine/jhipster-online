@@ -36,6 +36,7 @@ export class GeneratorComponent implements OnInit {
     submitted = false;
 
     languageOptions;
+    moduleOptions = [];
 
     selectedGitProvider: string;
     selectedGitCompany: string;
@@ -127,6 +128,20 @@ export class GeneratorComponent implements OnInit {
             this.gitlabConfigured = gitConfig.gitlabConfigured;
             this.githubConfigured = gitConfig.githubConfigured;
         });
+        this.generatorService.getOtherModules().subscribe(
+            res => {
+                this.moduleOptions = res.results.map(function(elt) {
+                    return {
+                        name: '(' + elt.package.name + '-' + elt.package.version + ') ' + elt.package.description,
+                        value: elt.package.name + ':' + elt.package.version
+                    };
+                });
+            },
+            error => {
+                console.error('Error loading other modules.');
+                console.error(error);
+            }
+        );
     }
 
     updateSharedData(data: any) {
@@ -174,7 +189,16 @@ export class GeneratorComponent implements OnInit {
 
     onSubmitDownload() {
         this.checkModelBeforeSubmit();
-        this.generatorService.download(this.model).subscribe(
+        // Make a copy of the model to put otherModule into the right format
+        const copy = JSON.parse(JSON.stringify(this.model));
+        copy.otherModules = copy.otherModules.map(it => {
+            const strs = it.split(':');
+            return {
+                name: strs[0],
+                version: strs[1]
+            };
+        });
+        this.generatorService.download(copy).subscribe(
             data => this.downloadFile(data.body),
             error => console.log(error),
             () => {
@@ -198,8 +222,8 @@ export class GeneratorComponent implements OnInit {
     }
 
     downloadFile(blob: Blob) {
-        const a = document.createElement('a'),
-            fileURL = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const fileURL = URL.createObjectURL(blob);
 
         a.href = fileURL;
         a.download = this.model.baseName + '.zip';

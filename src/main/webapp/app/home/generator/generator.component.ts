@@ -18,6 +18,7 @@
  */
 import { Component, OnInit } from '@angular/core';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
+import { LocalStorageService } from 'ngx-webstorage';
 
 import { GitConfigurationModel, GitConfigurationService } from 'app/core';
 import { JHipsterConfigurationModel } from './jhipster.configuration.model';
@@ -103,9 +104,18 @@ export class GeneratorComponent implements OnInit {
     constructor(
         private modalService: NgbModal,
         private generatorService: GeneratorService,
-        private gitConfigurationService: GitConfigurationService
+        private gitConfigurationService: GitConfigurationService,
+        private $localStorage: LocalStorageService
     ) {
         this.newGenerator();
+        Object.keys(this.model).forEach(
+            function(key) {
+                const value = this.$localStorage.retrieve('JHipsterConfigurationModel.' + key);
+                if (value) {
+                    this.model[key] = value;
+                }
+            }.bind(this)
+        );
     }
 
     ngOnInit() {
@@ -197,6 +207,12 @@ export class GeneratorComponent implements OnInit {
         a.click();
         window.document.body.removeChild(a);
         URL.revokeObjectURL(fileURL);
+
+        Object.keys(this.model).forEach(
+            function(key) {
+                this.$localStorage.store('JHipsterConfigurationModel.' + key, this.model[key]);
+            }.bind(this)
+        );
     }
 
     newGenerator() {

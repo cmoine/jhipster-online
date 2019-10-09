@@ -19,16 +19,27 @@
 
 package io.github.jhipster.online.service;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
+import java.io.PrintStream;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
-import io.github.jhipster.online.service.enums.CiCdTool;
+import org.apache.commons.exec.CommandLine;
+import org.apache.commons.exec.DefaultExecutor;
+import org.apache.commons.exec.ExecuteWatchdog;
+import org.apache.commons.exec.PumpStreamHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import io.github.jhipster.online.config.ApplicationProperties;
+import io.github.jhipster.online.service.enums.CiCdTool;
 
 @Service
 public class JHipsterService {
@@ -83,30 +94,37 @@ public class JHipsterService {
 
     private void runProcess(String generationId, File workingDir, String command) throws IOException {
         log.info("Running command: \"{}\" in directory:  \"{}\"", command, workingDir);
-        try {
-            String line;
-            Process p = Runtime.getRuntime().exec
-                (command, null, workingDir);
-
+        try(final PrintStream ps=new PrintStream(new File(workingDir, "jhipster.log"))){
+            CommandLine cmdLine = CommandLine.parse(command);
+            DefaultExecutor executor = new DefaultExecutor();
+            executor.setExitValues(new int[] {0,1});
+            ExecuteWatchdog watchdog = new ExecuteWatchdog(TimeUnit.SECONDS.toMillis(timeout));
+            executor.setWatchdog(watchdog);
+            PipedInputStream snk=new PipedInputStream();
+            PipedOutputStream stdout=new PipedOutputStream(snk);
+            final BufferedReader input=new BufferedReader(new InputStreamReader(snk));
+            
+            PumpStreamHandler psh = new PumpStreamHandler(stdout);
+            executor.setStreamHandler(psh);
             taskExecutor.execute(() -> {
+                String line;
                 try {
-                    p.waitFor(timeout, TimeUnit.SECONDS);
-                    if (p.isAlive()) {
-                        p.destroyForcibly();
+                    while ((line = input.readLine()) != null) {
+                        System.err.println(line);
+                        FileWriter fw;
+                        ps.println(line);
+                        log.debug(line);
+                        this.logsService.addLog(generationId, line);
                     }
-                } catch (InterruptedException e) {
+                } catch (IOException e) {
                     e.printStackTrace();
                 }
             });
-
-            BufferedReader input =
-                new BufferedReader
-                    (new InputStreamReader(p.getInputStream()));
-            while ((line = input.readLine()) != null) {
-                log.debug(line);
-                this.logsService.addLog(generationId, line);
+            executor.setWorkingDirectory(workingDir);
+            int exitValue = executor.execute(cmdLine);
+            if(exitValue!=0) {
+                log.error("\"{}\" has returned \"{}\"", cmdLine.getExecutable(), exitValue);
             }
-            input.close();
         } catch (Exception e) {
             log.error("Error while running the process", e);
             throw e;

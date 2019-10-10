@@ -21,7 +21,6 @@ package io.github.jhipster.online.service;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PipedInputStream;
@@ -32,6 +31,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.exec.CommandLine;
 import org.apache.commons.exec.DefaultExecutor;
+import org.apache.commons.exec.ExecuteException;
 import org.apache.commons.exec.ExecuteWatchdog;
 import org.apache.commons.exec.PumpStreamHandler;
 import org.slf4j.Logger;
@@ -53,8 +53,10 @@ public class JHipsterService {
     private final String jhipsterCommand;
 
     private final Integer timeout;
+    
+    private String jHipsterVersion;
 
-    public JHipsterService(LogsService logsService, ApplicationProperties applicationProperties, Executor taskExecutor) {
+    public JHipsterService(LogsService logsService, ApplicationProperties applicationProperties, Executor taskExecutor) throws ExecuteException, IOException {
         this.logsService = logsService;
         this.taskExecutor = taskExecutor;
 
@@ -62,6 +64,33 @@ public class JHipsterService {
         timeout = applicationProperties.getJhipsterCmd().getTimeout();
 
         log.info("JHipster service will be using \"{}\" to run generator-jhipster.", jhipsterCommand);
+        
+        CommandLine cmdLine = CommandLine.parse(jhipsterCommand + " --version");
+        DefaultExecutor executor = new DefaultExecutor();
+        executor.setExitValues(new int[] {0,1});
+        PipedInputStream snk=new PipedInputStream();
+        PipedOutputStream stdout=new PipedOutputStream(snk);
+        final BufferedReader input=new BufferedReader(new InputStreamReader(snk));
+        
+        PumpStreamHandler psh = new PumpStreamHandler(stdout);
+        executor.setStreamHandler(psh);
+        taskExecutor.execute(() -> {
+            String line;
+            try {
+                while ((line = input.readLine()) != null) {
+                    if(line.matches("[0-9]+\\.[0-9]+\\.[0-9]+")) {
+                        jHipsterVersion=line;
+                    }
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
+        executor.execute(cmdLine);
+    }
+    
+    public String getJHipsterVersion() {
+        return jHipsterVersion;
     }
 
     public void installNpmDependencies(String generationId, File workingDir) throws IOException {
@@ -110,8 +139,6 @@ public class JHipsterService {
                 String line;
                 try {
                     while ((line = input.readLine()) != null) {
-                        System.err.println(line);
-                        FileWriter fw;
                         ps.println(line);
                         log.debug(line);
                         this.logsService.addLog(generationId, line);

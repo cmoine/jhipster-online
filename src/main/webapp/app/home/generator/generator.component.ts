@@ -130,10 +130,12 @@ export class GeneratorComponent implements OnInit {
         });
         this.generatorService.getOtherModules().subscribe(
             res => {
-                this.moduleOptions = res.results.map(function(elt) {
+                console.log(res);
+                this.moduleOptions = res.map(function(it) {
+                    const elt = it.collected.metadata;
                     return {
-                        name: '(' + elt.package.name + '-' + elt.package.version + ') ' + elt.package.description,
-                        value: elt.package.name + ':' + elt.package.version
+                        name: '(' + elt.name + '-' + elt.version + ') ' + elt.description,
+                        value: elt.name + ':' + elt.version
                     };
                 });
             },

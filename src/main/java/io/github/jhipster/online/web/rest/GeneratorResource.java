@@ -19,15 +19,26 @@
 
 package io.github.jhipster.online.web.rest;
 
-import java.io.*;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.List;
 import java.util.UUID;
 
 import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.*;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.annotation.Secured;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.RestController;
 
 import com.codahale.metrics.annotation.Timed;
 import com.jayway.jsonpath.Configuration;
@@ -36,7 +47,13 @@ import com.jayway.jsonpath.JsonPath;
 import io.github.jhipster.online.domain.User;
 import io.github.jhipster.online.domain.enums.GitProvider;
 import io.github.jhipster.online.security.AuthoritiesConstants;
-import io.github.jhipster.online.service.*;
+import io.github.jhipster.online.service.BlueprintService;
+import io.github.jhipster.online.service.GeneratorService;
+import io.github.jhipster.online.service.GithubService;
+import io.github.jhipster.online.service.GitlabService;
+import io.github.jhipster.online.service.LogsService;
+import io.github.jhipster.online.service.UserService;
+import io.github.jhipster.online.service.dto.npms.details.DetailResult;
 
 @RestController
 @RequestMapping("/api")
@@ -54,16 +71,27 @@ public class GeneratorResource {
 
     private final LogsService logsService;
 
+    private final BlueprintService blueprintService;
+
     public GeneratorResource(GeneratorService generatorService,
         GithubService githubService,
         GitlabService gitlabService,
         UserService userService,
-        LogsService logsService) {
+        LogsService logsService,
+        BlueprintService blueprintService) {
         this.generatorService = generatorService;
         this.githubService = githubService;
         this.gitlabService = gitlabService;
         this.userService = userService;
         this.logsService = logsService;
+        this.blueprintService = blueprintService;
+    }
+    
+    @GetMapping("/blueprints")
+    @Timed
+    @Secured(AuthoritiesConstants.USER)
+    public List<DetailResult> blueprints() throws Exception {
+        return blueprintService.getCollect();
     }
 
     @PostMapping("/generate-application")
